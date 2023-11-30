@@ -1,7 +1,6 @@
 import socket
 import threading
 import tkinter
-import tkmacosx
 import tkinter.scrolledtext
 from tkinter import simpledialog
 
@@ -31,7 +30,7 @@ class Client:
         self.win = tkinter.Tk()
         self.win.configure(bg='lavender')
 
-        self.chat_label = tkinter.Label(self.win, text="Chat:", bg='lavender')
+        self.chat_label = tkinter.Label(self.win, text="Chatbox", bg='lavender')
         self.chat_label.config(font=('Arial', 12))
         self.chat_label.pack(padx=20, pady=10)
 
@@ -39,7 +38,7 @@ class Client:
         self.text_area.pack(padx=20, pady=10)
         self.text_area.config(state='disabled')
 
-        self.msg_label = tkinter.Label(self.win, text=f"{self.nickname}'s Chatbox", bg='lavender')
+        self.msg_label = tkinter.Label(self.win, text="Your message", bg='lavender')
         self.msg_label.config(font=('Arial', 12))
         self.msg_label.pack(padx=20, pady=10)
 
@@ -57,7 +56,7 @@ class Client:
         self.win.mainloop()
 
     def write(self):
-        message = f"{self.nickname}: {self.input_area.get('1,0', 'end')}"
+        message = f"{self.nickname}: {self.input_area.get('1.0', 'end')}"
         self.sock.send(message.encode('utf-8'))
         self.input_area.delete('1.0', 'end')
 
