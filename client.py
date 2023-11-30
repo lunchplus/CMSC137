@@ -30,7 +30,7 @@ class Client:
         self.win = tkinter.Tk()
         self.win.configure(bg='lavender')
 
-        self.chat_label = tkinter.Label(self.win, text="Chatbox", bg='lavender')
+        self.chat_label = tkinter.Label(self.win, text=f"{self.nickname} Chatbox", bg='lavender')
         self.chat_label.config(font=('Arial', 12))
         self.chat_label.pack(padx=20, pady=10)
 
