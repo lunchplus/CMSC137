@@ -4,18 +4,23 @@ import threading
 HOST = '127.0.0.1'
 PORT = 9090
 
+# create a server that is an INET, STREAMING socket
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.bind((HOST, PORT))
 
+# bind server to own address so clients can connect
+server.bind((HOST, PORT))
 server.listen()
 
+# address book for client address and their nicknames
 clients = []
 nicknames = []
 
+# broadcast client messages to all clients
 def broadcast(message):
     for client in clients:
         client.send(message)
 
+# handle client messages and actions
 def handle(client):
     while True:
         try:
@@ -30,6 +35,9 @@ def handle(client):
             nicknames.remove(nickname)
             break
 
+
+# receive connection request from a client while server is active
+# create a thread for that client
 def receive():
     while True:
         client, address = server.accept()
