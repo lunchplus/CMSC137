@@ -1,113 +1,106 @@
 import socket
 import threading
-import tkinter
+import tkinter as tk
 import tkinter.scrolledtext
 from tkinter import simpledialog
 
-HOST = '127.0.0.1'
+HOST = socket.gethostbyname(socket.gethostname())
 PORT = 9090
+SIZE = 1024
+FORMAT = 'utf-8'
 
 class Client:
     def __init__(self, host, port):
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.connect((host, port)) # connect to a server
+        self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.client_socket.connect((host, port))
+        self.connected = True
 
-        popup = tkinter.Tk()  
-        popup.withdraw()              # run nickname popup in background
+        print(f"[CONNECTED] Client connected to server at {host}:{port}")
 
-        # popup to get nickname
-        self.nickname = simpledialog.askstring("Nickname", "Please type your nickname.", parent=popup)
+        name_request = tk.Tk()  
+        name_request.withdraw()              
+        self.name = simpledialog.askstring("Name", "Enter your name.", parent=name_request)
         
-        # start GUI setup flag
-        self.gui_done = False
-
-        # start GUI process flag
-        self.running = True
-
-        # create threads for GUI window and message receive process
-        gui_thread = threading.Thread(target=self.gui_loop)
-        receive_thread = threading.Thread(target=self.receive)
+        self.guiRendered = False
+        gui_thread = threading.Thread(target=self.gui_render)
         gui_thread.start()
-        receive_thread.start()
+
+        fetch_thread = threading.Thread(target=self.fetch)
+        fetch_thread.start()
 
 
-    def gui_loop(self):
-        # chat GUI window
-        self.win = tkinter.Tk()
+    def gui_render(self):
+        self.window = tk.Tk()
+        self.window.configure(bg='lavender')
 
-        # decorate window
-        self.win.configure(bg='lavender')
-        self.chat_label = tkinter.Label(self.win, text=f"{self.nickname} Chatbox", bg='lavender')
-        self.chat_label.config(font=('Arial', 12))
-        self.chat_label.pack(padx=20, pady=10)
+        self.title_frame = tk.Frame(self.window)
+        self.title_frame.configure(bg='lavender')
+        self.title_frame.pack(fill='x', padx=10, pady=10)
 
-        # decorate broadcast area
-        self.text_area = tkinter.scrolledtext.ScrolledText(self.win)
-        self.text_area.pack(padx=20, pady=10)
-        self.text_area.config(state='disabled')
+        self.window_label = tk.Label(self.title_frame, text=f"{self.name}", bg='lavender')
+        self.window_label.config(font=('Arial', 12))
+        self.window_label.pack(side=tk.LEFT, fill='x')
 
-        # decorate input area
-        self.msg_label = tkinter.Label(self.win, text="Your message", bg='lavender')
-        self.msg_label.config(font=('Arial', 12))
-        self.msg_label.pack(padx=20, pady=10)
-        self.input_area = tkinter.Text(self.win, height=5)
-        self.input_area.pack(padx=20, pady=10)
+        self.quit_button = tk.Button(self.title_frame, text="QUIT", command=self.shutdown)
+        self.quit_button.config(font=('Arial', 12))
+        self.quit_button.pack(side=tk.RIGHT, fill='x')
 
-        # decorate button
-        self.send_button = tkinter.Button(self.win, text="SEND", command=self.write)
+        self.read_area = tk.scrolledtext.ScrolledText(self.window)
+        self.read_area.pack(padx=10, pady=10)
+        self.read_area.config(state='disabled')
+
+        self.chat_frame = tk.Frame(self.window)
+        self.chat_frame.configure(bg='lavender')
+        self.chat_frame.pack(side=tk.BOTTOM, padx=10, pady=10)
+
+        self.write_label = tk.Label(self.chat_frame, text="Your message", bg='lavender')
+        self.write_label.config(font=('Arial', 12))
+        self.write_label.pack(padx=10, pady=10)
+        self.write_area = tk.Text(self.chat_frame, height=5)
+        self.write_area.pack(side=tk.LEFT, padx=10, pady=10)
+
+        self.send_button = tk.Button(self.chat_frame, text="SEND", command=self.write)
         self.send_button.config(font=('Arial', 12))
-        self.send_button.pack(padx=20, pady=10)
+        self.send_button.pack(side=tk.RIGHT)
 
-        self.gui_done = True                                # finished decorating
-        self.win.protocol('WM_DELETE_WINDOW', self.stop)    # properly stop if window is closed
-        self.win.mainloop()                                 # last line of execution loop
+        self.guiRendered = True                                
+        self.window.protocol('WM_DELETE_WINDOW', self.shutdown)    
+        self.window.mainloop()                                 
 
-    # send user input in input area, and then clear once sent
     def write(self):
-        message = f"{self.nickname}: {self.input_area.get('1.0', 'end')}"
-        self.sock.send(message.encode('utf-8'))
-        self.input_area.delete('1.0', 'end')
+        message = self.write_area.get('1.0', 'end')
+        self.client_socket.send(message.encode(FORMAT))
+        self.write_area.delete('1.0', 'end')
 
-    # proper steps to close connection if window is closed
-    def stop(self):
-        self.running = False
-        self.win.destroy()
-        self.sock.close()
+
+    def shutdown(self):
+        self.client_socket.send(f"Goodbye. <{self.name} has left the chat...>\n".encode(FORMAT))
+        self.connected = False
+        self.window.destroy()
+        self.client_socket.close()
         exit(0)
 
-    # 
-    def receive(self):
-        while self.running:
+    def fetch(self):
+        while self.connected:
             try:
-
-                # listen for message from server
-                message = self.sock.recv(1024).decode('utf-8')
-
-                # send nickname
-                if message == 'GET_NICKNAME':
-                    self.sock.send(self.nickname.encode('utf-8'))
+                message = self.client_socket.recv(SIZE).decode(FORMAT)
+                
+                if message == 'NAME_PROMPT':
+                    self.client_socket.send(self.name.encode(FORMAT))
 
                 else:
-                    # temporarily enable broadcast area to insert message
-                    if self.gui_done:
-                        self.text_area.config(state='normal')
-                        self.text_area.insert('end', message)
-                        self.text_area.yview('end')
-                        self.text_area.config(state='disabled')
+                    if self.guiRendered:
+                        self.read_area.config(state='normal')
+                        self.read_area.insert('end', message)
+                        self.read_area.yview('end')
+                        self.read_area.config(state='disabled')
 
             except ConnectionAbortedError:
                 break
 
             except:
-                print("Error")
-                self.sock.close()
+                print("Connection Error")
+                self.client_socket.close()
                 break
 
-# create an instance connected to host IP and port
 client = Client(HOST, PORT)
-
-
-
-
-
-        
